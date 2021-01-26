@@ -4,7 +4,6 @@
 #include <iostream>
 #include <omp.h>
 #include <opencv2/imgproc.hpp>
-// #include <opencv2/highgui.hpp>
 
 /**
  * returns true if the given x/y coordinate fall inside an image bounds
@@ -94,9 +93,6 @@ bool SimpleDisparity::computeDisparity(
   cv::cvtColor(img_left, img_left_, cv::COLOR_RGB2GRAY, CV_8U);
   cv::cvtColor(img_right, img_right_, cv::COLOR_RGB2GRAY, CV_8U);
 
-  // cv::imshow("img1 gray" , img_left_);
-  // cv::imshow("img2 gray" , img_right_);
-  
   // resize if needed
   if (params_.resize_factor != 1)
   {
@@ -111,10 +107,10 @@ bool SimpleDisparity::computeDisparity(
   // variables for percent complete printing
   int completed = 0;
   int last_percent = -10;
+  // multithread the operation
   #pragma omp parallel for
   for (int x=0;x < img_left_.cols; ++x)
   {
-    // std::cout << "x = " << x << std::endl;
     for (int y=0; y < img_left_.rows; ++y)
     {
       int shift = findMinCostShift(x, y);
@@ -122,10 +118,10 @@ bool SimpleDisparity::computeDisparity(
       if (shift >= 0)
       {
         img_out.at<uint16_t>(cv::Point(x, y)) = (uint16_t)shift;
-        // std::cout << "shift at: " << x << ", " << y <<" = " << shift << std::endl;
       }
     }
 
+    // print percent complete
     #pragma omp critical
     {
       ++completed;
