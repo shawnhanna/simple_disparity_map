@@ -22,15 +22,22 @@ bool readImage(std::string &filename, cv::Mat &mat)
 
 int main(int argc, char const *argv[])
 {
-  std::string img_left_name, img_right_name;
+  std::string img_left_name, img_right_name, img_out_name;
 
   // read args
   if (argc == 3){
     img_left_name = std::string(argv[1]);
     img_right_name = std::string(argv[2]);
   }
+  else if (argc == 4){
+    // input images
+    img_left_name = std::string(argv[1]);
+    img_right_name = std::string(argv[2]);
+    // output image
+    img_out_name = std::string(argv[3]);
+  }
   else {
-    std::cerr << "Invalid args. Need: ./simple_disparity_map img1.png img2.png img_out.png" << std::endl;
+    std::cerr << "Invalid args. Need: ./simple_disparity_map img_left.png img_right.png [img_out.png]" << std::endl;
     return 100;
   }
 
@@ -42,14 +49,23 @@ int main(int argc, char const *argv[])
     return 1;
 
   std::cout << "computing disparity" << std::endl;
-  cv::imshow("img left", img_left);
-  cv::imshow("img right", img_right);
-  cv::waitKey(100);
+  if (img_out_name.length() == 0){
+    cv::imshow("img left", img_left);
+    cv::imshow("img right", img_right);
+    cv::waitKey(100);
+  }
 
   SimpleDisparity disparity;
   disparity.computeDisparity(img_left, img_right, img_out);
-  cv::imshow("output", img_out);
+  if (img_out_name.length() == 0){
+    std::cout << "Press 'q' to quit" << std::endl;
+    cv::imshow("output", img_out);
+    while(cv::waitKey(-1) != 'q'){}
+  }
+  else{
+    std::cout << "Writing output: " << img_out_name << std::endl;
+    cv::imwrite(img_out_name, img_out);
+  }
 
-  while(cv::waitKey(-1) != 'q'){}
   return 0;
 }

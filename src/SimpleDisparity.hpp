@@ -6,7 +6,7 @@ struct SimpleDisparityParams
 {
     int box_width = 15;
     int box_height = 15;
-    int max_disparity_pixels = 60;
+    int max_disparity_pixels = 50;
     int resize_factor = 1;
 };
 

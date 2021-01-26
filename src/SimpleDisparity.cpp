@@ -22,15 +22,18 @@ bool inBounds(const cv::Mat &mat, int x, int y){
 /**
  * calculates the abs difference between two blocks given the top left
  *  corner of each ROI
+ * 
+ * x1/y1 = center pixel to search in left image
+ * x2/y2 = center pixel to search in right image
  */
 int SimpleDisparity::computeSAD(int x_1, int y_1, int x_2, int y_2)
 {
   // std::cout << cv::Point(x_1, y_1) <<" - " << cv::Point(x_2, y_2)<< std::endl;
   int sum_sq = 0;
-  for (int x = 0; x < params_.box_width; ++x){
-    for (int y = 0; y < params_.box_height; ++y){
-      cv::Point p1(x_1 + x - params_.box_width/2, y_1 + y - params_.box_height/2);
-      cv::Point p2(x_2 + x - params_.box_width/2, y_2 + y - params_.box_height/2);
+  for (int x = -params_.box_width/2; x < params_.box_width/2; ++x){
+    for (int y = -params_.box_height/2; y < params_.box_height/2; ++y){
+      cv::Point p1(x_1 + x, y_1 + y);
+      cv::Point p2(x_2 + x, y_2 + y);
       if (!(inBounds(img_left_, p1.x, p1.y) && inBounds(img_right_, p2.x, p2.y))){
         continue;
       }
@@ -54,28 +57,31 @@ int SimpleDisparity::findMinCostShift(int in_x_, int in_y_)
   }
 
   // search to the right of the pixel and pick the smallest box diff
-  std::pair<int, int> min_cost(99999999, -1);
-  for (int x = in_x_ - params_.max_disparity_pixels/2; x < in_x_ + params_.max_disparity_pixels; ++x)
+  std::pair<int, int> min_cost(999999999, -1);
+  for (int x = in_x_; x < in_x_ + params_.max_disparity_pixels; ++x)
   {
     if(!inBounds(img_left_, x, in_y_))
       continue;
 
-    int cost = computeSAD(in_x_, in_y_, x, in_y_);
+    int cost = computeSAD(x, in_y_, in_x_, in_y_);
+
     if (cost < min_cost.first){
       min_cost.first = cost;
       min_cost.second = x;
     }
   }
-  if (min_cost.first == 99999999)
-    return 0;
-  return min_cost.first;
+  if (min_cost.second == -1)
+    return -1;
+
+  return abs(min_cost.second - in_x_);
 }
 
 /**
  * computes the disparity between two images, and outputs it as a CV_8U output image.
  *    Normalizes from 0->255 in the output
  */
-bool SimpleDisparity::computeDisparity(const cv::Mat &img_left,
+bool SimpleDisparity::computeDisparity(
+            const cv::Mat &img_left,
             const cv::Mat &img_right,
             cv::Mat &img_out)
 {
@@ -83,6 +89,7 @@ bool SimpleDisparity::computeDisparity(const cv::Mat &img_left,
     std::cerr << "Cannot compute disparity on different sized images" << std::endl;
     return false;
   }
+
   // convert to grayscale
   cv::cvtColor(img_left, img_left_, cv::COLOR_RGB2GRAY, CV_8U);
   cv::cvtColor(img_right, img_right_, cv::COLOR_RGB2GRAY, CV_8U);
@@ -93,11 +100,13 @@ bool SimpleDisparity::computeDisparity(const cv::Mat &img_left,
   // resize if needed
   if (params_.resize_factor != 1)
   {
+    std::cout << "Resizing: scale = " << params_.resize_factor << std::endl;
     cv::resize(img_left_, img_left_, img_left_.size() / params_.resize_factor);
     cv::resize(img_right_, img_right_, img_right_.size() / params_.resize_factor);
   }
+
   // create output image
-  img_out.create(img_left_.size(), CV_16U);
+  img_out.create(img_left_.size(), CV_16UC1);
 
   // variables for percent complete printing
   int completed = 0;
@@ -106,14 +115,14 @@ bool SimpleDisparity::computeDisparity(const cv::Mat &img_left,
   for (int x=0;x < img_left_.cols; ++x)
   {
     // std::cout << "x = " << x << std::endl;
-    for (int y=0;y < img_left_.rows; ++y)
+    for (int y=0; y < img_left_.rows; ++y)
     {
-      int cost = findMinCostShift(x, y);
+      int shift = findMinCostShift(x, y);
 
-      if (cost >= 0)
+      if (shift >= 0)
       {
-        img_out.at<uint16_t>(cv::Point(x, y)) = cost;
-        // std::cout << "Cost at: " << x << ", " << y <<" = " << cost << std::endl;
+        img_out.at<uint16_t>(cv::Point(x, y)) = (uint16_t)shift;
+        // std::cout << "shift at: " << x << ", " << y <<" = " << shift << std::endl;
       }
     }
 
